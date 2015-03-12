@@ -1,0 +1,31 @@
+Copying tests/userprog/read-stdout into /tmp/nQyVUTXPCP.dsk...
+Writing command line to /tmp/D0i77W9Mxt.dsk...
+qemu -hda /tmp/D0i77W9Mxt.dsk -hdb /tmp/XXHTPxsBnt.dsk -hdc /tmp/nQyVUTXPCP.dsk -hdd /tmp/h17hgUePvK.dsk -m 4 -net none -nographic -monitor null
+Kernel command line: -q -f put read-stdout run read-stdout
+Pintos booting with 4,096 kB RAM...
+free start is c0113000
+374 pages available in kernel pool.
+373 pages available in user pool.
+Calibrating timer...  78,540,800 loops/s.
+hd0:0: detected 145 sector (72 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 4,032 sector (1 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 73 sector (36 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+hd1:1: detected 8,064 sector (3 MB) disk, model "QEMU HARDDISK", serial "QM00004"
+Formatting file system...done.
+Boot complete.
+Putting 'read-stdout' into the file system...
+Executing 'read-stdout':
+(read-stdout) begin
+(read-stdout) end
+read-stdout: exit(0)
+Execution of 'read-stdout' complete.
+Timer: 61 ticks
+Thread: 0 idle ticks, 60 kernel ticks, 1 user ticks
+hd0:0: 0 reads, 0 writes
+hd0:1: 58 reads, 154 writes
+hd1:0: 73 reads, 0 writes
+hd1:1: 0 reads, 0 writes
+Console: 940 characters output
+Keyboard: 0 keys pressed
+Exception: 4 page faults
+Powering off...

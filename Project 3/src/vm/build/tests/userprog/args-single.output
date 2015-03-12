@@ -1,0 +1,35 @@
+Copying tests/userprog/args-single into /tmp/23ryyXQ6ej.dsk...
+Writing command line to /tmp/llbGh9QWsE.dsk...
+qemu -hda /tmp/llbGh9QWsE.dsk -hdb /tmp/Y2W8CVAusg.dsk -hdc /tmp/23ryyXQ6ej.dsk -hdd /tmp/ASKSSo8eGJ.dsk -m 4 -net none -nographic -monitor null
+Kernel command line: -q -f put args-single run 'args-single onearg'
+Pintos booting with 4,096 kB RAM...
+free start is c0113000
+374 pages available in kernel pool.
+373 pages available in user pool.
+Calibrating timer...  78,540,800 loops/s.
+hd0:0: detected 145 sector (72 kB) disk, model "QEMU HARDDISK", serial "QM00001"
+hd0:1: detected 4,032 sector (1 MB) disk, model "QEMU HARDDISK", serial "QM00002"
+hd1:0: detected 72 sector (36 kB) disk, model "QEMU HARDDISK", serial "QM00003"
+hd1:1: detected 8,064 sector (3 MB) disk, model "QEMU HARDDISK", serial "QM00004"
+Formatting file system...done.
+Boot complete.
+Putting 'args-single' into the file system...
+Executing 'args-single onearg':
+(args) begin
+(args) argc = 2
+(args) argv[0] = 'args-single'
+(args) argv[1] = 'onearg'
+(args) argv[2] = null
+(args) end
+args-single: exit(0)
+Execution of 'args-single onearg' complete.
+Timer: 61 ticks
+Thread: 0 idle ticks, 60 kernel ticks, 1 user ticks
+hd0:0: 0 reads, 0 writes
+hd0:1: 59 reads, 152 writes
+hd1:0: 72 reads, 0 writes
+hd1:1: 0 reads, 0 writes
+Console: 1044 characters output
+Keyboard: 0 keys pressed
+Exception: 4 page faults
+Powering off...
