@@ -1,0 +1,164 @@
+#include "filesys/free-map.h"
+#include <bitmap.h>
+#include <debug.h>
+#include "filesys/file.h"
+#include "filesys/filesys.h"
+#include "filesys/inode.h"
+
+static struct file *free_map_file;   /* Free map file. */
+static struct bitmap *free_map;      /* Free map, one bit per disk sector. */
+
+/* Initializes the free map. */
+void
+free_map_init (void) 
+{
+  free_map = bitmap_create (disk_size (filesys_disk));
+  if (free_map == NULL)
+    PANIC ("bitmap creation failed--disk is too large");
+  bitmap_mark (free_map, FREE_MAP_SECTOR);
+  bitmap_mark (free_map, ROOT_DIR_SECTOR);
+}
+
+/* Allocates CNT consecutive sectors from the free map and stores
+   the first into *SECTORP.
+   Returns true if successful, false if all sectors were
+   available. */
+
+bool
+free_map_allocate (size_t cnt, disk_sector_t *sectorp) 
+{
+  printf("free_map_allocate start\n");
+  disk_sector_t sector = bitmap_scan_and_flip (free_map, 0, cnt, false);
+  if (sector != BITMAP_ERROR
+      && free_map_file != NULL
+      && !bitmap_write (free_map, free_map_file))
+    {
+      bitmap_set_multiple (free_map, sector, cnt, false); 
+      sector = BITMAP_ERROR;
+    }
+  if (sector != BITMAP_ERROR)
+    *sectorp = sector;
+  printf("after free_map_allocate\n");
+  return sector != BITMAP_ERROR;
+}
+
+/*
+bool
+free_map_allocate(size_t cnt, struct inode_disk * disk_inode)
+{
+  printf("free_map_allocate start, cnt is %d\n",cnt);
+  size_t free_slot = bitmap_count(free_map, 0, bitmap_size(free_map)-1, false);
+  if(free_slot < cnt)
+    return false;
+  int i;
+  disk_sector_t target;
+  disk_sector_t single_indirect;
+  disk_sector_t double_indirect;
+  
+  printf("before if statement in free_map_allocate\n");
+
+  if(cnt <= DIRECT_NUM) // DIRECT case
+  {
+    printf("DIRECT case\n");
+    for(i=0; i<DIRECT_NUM; i++)
+    {
+      if(i<=cnt-1)
+      {
+        target = bitmap_scan_and_flip(free_map, 0, 1, false);
+        disk_inode->direct[i] = target;
+//        printf("i is %d, target is %d\n", i, target);
+//        printf("disk_inode->direct[%d] = %d\n", i, disk_inode->direct[i]);
+      }
+      else
+        disk_inode->direct[i] = -1;
+    }
+    printf("after for loop\n");
+    if(free_map_file == NULL) // when this function is called by free_map_create, free_map_file is NULL.
+    {
+      printf("free_map_file is NULL\n");
+      return target != BITMAP_ERROR;
+    }
+    bitmap_write(free_map, free_map_file);
+    printf("after bitmap_write\n");
+    return true;
+  }
+  else if(cnt > DIRECT_NUM && cnt <= (DIRECT_NUM + DISK_SECTOR_SIZE/4)) // single_indirect case
+  {
+    for(i=0; i<DIRECT_NUM; i++)
+    {
+      target = bitmap_scan_and_flip(free_map, 0, 1, false);
+      disk_inode->direct[i] = target;
+    }
+    bitmap_write(free_map, free_map_file);
+
+    //single indirect
+    single_indirect = bitmap_scan_and_flip(free_map, 0, 1, false);
+    disk_sector_t * single = malloc(DISK_SECTOR_SIZE);
+
+    for(i=0; i< DISK_SECTOR_SIZE/4; i++)
+    {
+      if(i<=cnt - DIRECT_NUM -1)
+      {
+        target = bitmap_scan_and_flip(free_map, 0, 1, false);
+        single[i] = target;
+      }
+      else
+        single[i] = -1;
+    }
+    bitmap_write(free_map, free_map_file);
+    buffer_write(single_indirect, single, 0, DISK_SECTOR_SIZE);
+    free(single);
+    return true;
+  }
+  else // double_indirect case
+  {
+  }
+  return false;
+}
+*/
+
+/* Makes CNT sectors starting at SECTOR available for use. */
+void
+free_map_release (disk_sector_t sector, size_t cnt)
+{
+  ASSERT (bitmap_all (free_map, sector, cnt));
+  bitmap_set_multiple (free_map, sector, cnt, false);
+  bitmap_write (free_map, free_map_file);
+}
+
+/* Opens the free map file and reads it from disk. */
+void
+free_map_open (void) 
+{
+  free_map_file = file_open (inode_open (FREE_MAP_SECTOR));
+  if (free_map_file == NULL)
+    PANIC ("can't open free map");
+  if (!bitmap_read (free_map, free_map_file))
+    PANIC ("can't read free map");
+}
+
+/* Writes the free map to disk and closes the free map file. */
+void
+free_map_close (void) 
+{
+  file_close (free_map_file);
+}
+
+/* Creates a new free map file on disk and writes the free map to
+   it. */
+void
+free_map_create (void) 
+{
+  printf("before inode_create in free_map_create\n");
+  /* Create inode. */
+  if (!inode_create (FREE_MAP_SECTOR, bitmap_file_size (free_map), false)) // false means creating file.
+    PANIC ("free map creation failed");
+
+  printf("after inode create in free_map_create\n");
+  /* Write bitmap to file. */
+  free_map_file = file_open (inode_open (FREE_MAP_SECTOR));
+  if (free_map_file == NULL)
+    PANIC ("can't open free map");
+  if (!bitmap_write (free_map, free_map_file))
+    PANIC ("can't write free map");
+}
