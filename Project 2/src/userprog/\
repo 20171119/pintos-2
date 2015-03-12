@@ -1,0 +1,211 @@
+#include "userprog/syscall.h"
+#include <stdio.h>
+#include <syscall-nr.h>
+#include "threads/interrupt.h"
+#include "threads/thread.h"
+
+static void syscall_handler (struct intr_frame *);
+static int get_user(const uint8_t * uaddr);
+static bool put_user(uint8_t * udst, uint8_t byte);
+
+
+/* new */
+void
+exit(status)
+{
+    struct thread * curr = thread_current();
+    struct thread * parent = curr->parent;      // if it's an orphaned process, than accessing parent thread's page can cause page fault
+    
+//    printf("%s exit called\n", curr->name);
+    
+    struct child_process * self = get_child(curr->tid, &parent->child_list);
+    process_exit();
+
+    if(self != NULL)
+    {
+      self->is_exited = true;
+      self->exit_status = status;
+      if(self->is_p_waiting)
+      {
+        enum intr_level old_level = intr_disable();
+        thread_unblock(parent); //intr on off?
+        intr_set_level(old_level);
+      }
+    }
+		printf("%s: exit(%d)\n", curr->name, status);
+}
+
+/* end */
+
+
+
+
+/* Reads a byte at user virtual address UADDR.
+ * UADDR must be below PHYS_BASE.
+ * Returns the byte value if successful, -1 if a segfault
+ * occured.
+ */
+static int
+get_user (const uint8_t * uaddr)
+{
+	int result;
+	asm ("movl $1f, %0; movzbl %1, %0; 1:"
+				: "=&a" (result) : "m" (*uaddr));
+	return result;
+}
+
+/* Writes BYTE to user address UDST.
+ * UDST must be below PHYS_BASE.
+ * Returns true if successful, false if a segfault occured.
+ */
+static bool
+put_user (uint8_t *udst, uint8_t byte)
+{
+	int error_code;
+	asm ("movl $1f, %0; movb %b2, %1; 1:"
+				: "=&a" (error_code), "=m" (*udst) : "q" (byte));
+	return error_code != -1;
+}
+
+
+int
+get_arg(char * ptr)
+{
+  int temp = 0;
+  int retval = 0;
+  
+  temp = get_user(ptr);
+  if(temp == -1) 
+    exit(-1);
+  else
+    retval = retval + (temp << 24);
+  
+  temp = get_user(ptr+1);
+  if(temp == -1)
+    exit(-1);
+  else
+    retval = retval + (temp << 16);
+  
+  temp = get_user(ptr+2);
+  if(temp == -1)
+    exit(-1);
+  else
+    retval = retval + (temp << 8);
+
+  temp = get_user(ptr+3);
+  if(temp == -1)
+    exit(-1);
+  else
+    retval = retval + (temp);
+
+  return retval;
+
+}
+
+
+
+
+void
+syscall_init (void) 
+{
+  intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
+}
+
+static void
+//syscall_handler (struct intr_frame *f UNUSED) 
+syscall_handler (struct intr_frame *f ) 
+{
+
+	//printf(" intr_frame f -> esp = %d \n", f->esp);
+	//printf(" *(int *)intr_frame f -> esp = %d \n", *(int *)f->esp);
+	uint32_t fd, size;
+	int status;
+	char * buf;
+	struct thread * current_thread = thread_current();
+
+  char * file_name;
+  int pid;
+
+/*	
+*/	
+	switch(*(int *)f->esp)
+	{
+	case SYS_HALT : 
+		break;
+	case SYS_EXIT :
+		status = *(int *)(f->esp+4);
+    exit(status);
+    thread_exit();
+		break;
+	case SYS_EXEC :
+    file_name = *(char **)(f->esp+4);
+    //printf("file_name is %s\n", file_name);
+    f->eax = (uint32_t) process_execute(file_name);
+    break;
+
+  case SYS_WAIT :
+    pid = *(int *)(f->esp+4);
+    f->eax = (uint32_t) process_wait(pid);
+    break;
+	case SYS_CREATE : break;
+	case SYS_REMOVE : break;
+	case SYS_OPEN : break;
+	case SYS_FILESIZE : break;
+	case SYS_READ : break;
+	case SYS_WRITE :
+	//	printf(" NUMBER in *(int *) intr_frame f->esp is %d\n", *(int *)f -> esp);
+	//	printf(" ARG0 of syscall3 in write is ,fd = %d\n",*(int *)(f->esp+4));
+	//	printf(" ARG1 of syscall3 in wirte is , buffer = 0x%.8X\n",f->esp+8);
+	//	printf(" ARG2 of syscall3 in write is , size = %d\n",*(int *)(f->esp+12));
+		//write return the byte read
+		fd = *(uint32_t *)(f->esp+4);
+		buf = *(char **)(f->esp+8);
+		size = *(uint32_t *)(f->esp+12);
+
+		switch(fd)
+		{
+			case 0:
+			case 2:
+				process_exit(-1);
+				//printf("
+				thread_exit();
+				break;
+			case 1:
+				if(get_user(f->esp+12) != -1)
+				{
+					putbuf( buf, size);
+					f->eax = size;
+				}
+				else
+				{
+					process_exit(-1);
+					thread_exit();
+				}
+				break;
+			default :
+				if(get_user(f->esp+12) != -1)
+				{
+					file_write( fd, buf, size);
+					f->eax = size;
+				}
+				else
+				{
+					process_exit(-1);
+					thread_exit();
+				}
+				break;
+		}
+		break;
+		
+	case SYS_SEEK : break;
+	case SYS_TELL : break;
+	case SYS_CLOSE : break;
+
+	default : //break;
+	  hex_dump(0xc0000000-400, 0xc0000000-400, 400, true);
+ 	  hex_dump(0x080486f0,0x080486f0, 400, true); 
+ 	  printf ("system call!\n");
+    thread_exit ();
+	}
+
+}
